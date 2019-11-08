@@ -7,7 +7,12 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
+var stacksearch struct {
+	Index indexCommand `command:"index"`
+}
+
 func main() {
+
 	parser := flags.NewParser(&stacksearch, flags.HelpFlag|flags.PassDoubleDash)
 	parser.NamespaceDelimiter = "-"
 

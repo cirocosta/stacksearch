@@ -12,7 +12,7 @@ type indexCommand struct {
 	Paths []string `long:"profile" short:"p"`
 }
 
-func (c *indexCommand) Execute(args []string) (err error) {
+func (c *indexCommand) Execute(_ []string) (err error) {
 	var (
 		paths   = []string{}
 		matches []string
