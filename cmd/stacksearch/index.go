@@ -10,15 +10,38 @@ import (
 
 type indexCommand struct {
 	Paths []string `long:"profile" short:"p"`
+
+	// Once indicates that we should just "index" in-memory.
+	//
+	Once bool `long:"once" description:"in-memory search for a single search"`
 }
 
-func (c *indexCommand) Execute(_ []string) (err error) {
-	var (
-		paths   = []string{}
-		matches []string
-	)
+func (c *indexCommand) Execute(args []string) (err error) {
+	dataset, err := populateDataset(c.Paths)
+	if err != nil {
+		return
+	}
 
-	for _, path := range c.Paths {
+	var callstacks []pkg.Callstack
+	for _, argument := range args {
+		callstacks, err = dataset.Get(argument)
+		if err != nil {
+			return
+		}
+	}
+
+	for _, callstack := range callstacks {
+		fmt.Println(strings.Join(callstack.Data, "\n"))
+		fmt.Println()
+	}
+
+	return
+}
+
+func populateDataset(paths []string) (dataset pkg.Dataset, err error) {
+	var matches []string
+
+	for _, path := range paths {
 		matches, err = filepath.Glob(path)
 		if err != nil {
 			return
@@ -32,9 +55,9 @@ func (c *indexCommand) Execute(_ []string) (err error) {
 		return
 	}
 
+	dataset = pkg.NewMemory()
 	for _, callstack := range callstacks {
-		fmt.Println(strings.Join(callstack.Data, "\n"))
-		fmt.Println()
+		dataset.Add(callstack)
 	}
 
 	return
