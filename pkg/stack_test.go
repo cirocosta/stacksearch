@@ -63,10 +63,24 @@ var _ = Describe("Stack", func() {
 
 			It("produces a callstack", func() {
 				Expect(callstacks).To(HaveLen(1))
-				Expect(callstacks[0].Data).To(ConsistOf([]string{
+			})
+
+			It("has function info captured", func() {
+				Expect(callstacks[0].Data).To(ConsistOf(
 					"fn1",
 					"fn2",
-				}))
+				))
+
+				Expect(callstacks[0].Locations).To(ConsistOf(
+					pkg.Location{
+						Filename: "fn1.go",
+						Line:     123,
+					},
+					pkg.Location{
+						Filename: "fn2.go",
+						Line:     123,
+					},
+				))
 			})
 		})
 
@@ -83,29 +97,29 @@ var _ = Describe("Stack", func() {
 			Entry("empty", scenario{}),
 			Entry("single", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
+					pkg.NewCallstack([]string{"a"}, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
+					pkg.NewCallstack([]string{"a"}, nil),
 				},
 			}),
 			Entry("different stacks", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
-					pkg.NewCallstack([]string{"b"}),
+					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"b"}, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
-					pkg.NewCallstack([]string{"b"}),
+					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"b"}, nil),
 				},
 			}),
 			Entry("equal stacks", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
-					pkg.NewCallstack([]string{"a"}),
+					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}),
+					pkg.NewCallstack([]string{"a"}, nil),
 				},
 			}),
 		)
@@ -118,8 +132,10 @@ func location(fn string) *pprof.Location {
 		Line: []pprof.Line{
 			{
 				Function: &pprof.Function{
-					Name: fn,
+					Name:     fn,
+					Filename: fn + ".go",
 				},
+				Line: 123,
 			},
 		},
 	}

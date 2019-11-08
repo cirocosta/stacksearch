@@ -3,15 +3,14 @@ package main
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/cirocosta/stacksearch/pkg"
 )
 
 type indexCommand struct {
-	Paths []string `long:"profile" short:"p"`
-
-	ShowFuncs bool `long:"show-funcs" description:"shows available functions"`
+	Paths     []string `long:"profile" short:"p"`
+	Verbose   bool     `long:"verbose" short:"v"`
+	ShowFuncs bool     `long:"show-funcs" description:"shows available functions"`
 }
 
 func (c *indexCommand) Execute(args []string) (err error) {
@@ -35,12 +34,28 @@ func (c *indexCommand) Execute(args []string) (err error) {
 		return
 	}
 
-	for _, callstack := range callstacks {
-		fmt.Println(strings.Join(callstack.Data, "\n"))
-		fmt.Println()
-	}
+	showCallstacks(callstacks, c.Verbose)
 
 	return
+}
+
+func showCallstacks(callstacks []pkg.Callstack, verbose bool) {
+	for _, callstack := range callstacks {
+		for idx := range callstack.Data {
+			fmt.Println(callstack.Data[idx])
+
+			if !verbose {
+				continue
+			}
+
+			fmt.Printf("\t%s:%d\n",
+				callstack.Locations[idx].Filename,
+				callstack.Locations[idx].Line,
+			)
+		}
+
+		fmt.Println()
+	}
 }
 
 func populateDataset(paths []string) (dataset pkg.Dataset, err error) {

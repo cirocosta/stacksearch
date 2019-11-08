@@ -10,15 +10,22 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Callstack represents a sequence of function calls.
-//
+type Location struct {
+	Line     int64
+	Filename string
+}
+
 type Callstack struct {
-	Data   []string
+	Data      []string
+	Locations []Location
+
 	digest [32]byte
 }
 
-func NewCallstack(data []string) (callstack Callstack) {
+func NewCallstack(data []string, locations []Location) (callstack Callstack) {
 	callstack.Data = data
+	callstack.Locations = locations
+
 	callstack.digest = sha256.Sum256([]byte(
 		strings.Join(callstack.Data, "\n")),
 	)
@@ -54,26 +61,36 @@ func LoadCallstacks(files []string) (callstacks []Callstack, err error) {
 		allCallstacks = append(allCallstacks, rawStacks...)
 	}
 
+	// reduce
 	callstacks = Merge(allCallstacks)
 
 	return
 }
 
-// SampleStack captures the callstack of a given sample.
+// sampleStack captures the callstack of a given sample.
 //
-func SampleStack(sample *pprof.Sample) (callstack Callstack) {
-	data := make([]string, len(sample.Location))
+func sampleStack(sample *pprof.Sample) (callstack Callstack) {
+	var (
+		data      = make([]string, len(sample.Location))
+		locations = make([]Location, len(sample.Location))
+	)
 
 	for idx, location := range sample.Location {
 		data[idx] = location.Line[0].Function.Name
+		locations[idx] = Location{
+			Filename: location.Line[0].Function.Filename,
+			Line:     location.Line[0].Line,
+		}
 	}
 
-	callstack = NewCallstack(data)
+	callstack = NewCallstack(data, locations)
 
 	return
 }
 
 // HavingFn filters down the list of stacks to those containing a function.
+//
+// TODO
 //
 func HavingFn(stacks []Callstack, fn string) (res []Callstack, err error) {
 	return
@@ -90,7 +107,7 @@ func CallstacksFromPprof(src *pprof.Profile) (callstacks []Callstack, err error)
 	m := map[[32]byte]struct{}{}
 
 	for _, sample := range src.Sample {
-		callstack := SampleStack(sample)
+		callstack := sampleStack(sample)
 
 		_, found := m[callstack.digest]
 		if found {

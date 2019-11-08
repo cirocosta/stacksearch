@@ -45,7 +45,7 @@ var _ = Describe("Memory Dataset", func() {
 				callstacksToAdd = append(callstacksToAdd,
 					pkg.NewCallstack([]string{
 						"fn1", "fn2",
-					}),
+					}, nil),
 				)
 			})
 
@@ -78,7 +78,7 @@ var _ = Describe("Memory Dataset", func() {
 				callstacksToAdd = append(callstacksToAdd,
 					pkg.NewCallstack([]string{
 						"fn1", "fn2",
-					}),
+					}, nil),
 				)
 
 				fn = "fn1"
