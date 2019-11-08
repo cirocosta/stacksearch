@@ -11,9 +11,7 @@ import (
 type indexCommand struct {
 	Paths []string `long:"profile" short:"p"`
 
-	// Once indicates that we should just "index" in-memory.
-	//
-	Once bool `long:"once" description:"in-memory search for a single search"`
+	ShowFuncs bool `long:"show-funcs" description:"shows available functions"`
 }
 
 func (c *indexCommand) Execute(args []string) (err error) {
@@ -28,6 +26,13 @@ func (c *indexCommand) Execute(args []string) (err error) {
 		if err != nil {
 			return
 		}
+	}
+
+	if c.ShowFuncs {
+		for _, f := range dataset.Funcs() {
+			fmt.Println(f)
+		}
+		return
 	}
 
 	for _, callstack := range callstacks {
