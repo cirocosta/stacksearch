@@ -3,8 +3,10 @@ package pkg
 import (
 	"crypto/sha256"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 
 	pprof "github.com/google/pprof/profile"
@@ -68,42 +70,74 @@ func NewCallstack(data []string, locations []Location, opt *CallstackOptions) (c
 	return
 }
 
+func loadFileStacks(opts CallstackOptions, files <-chan string, results chan<- []Callstack, errsC chan<- error) {
+	for file := range files {
+		profile, err := loadPprofProfile(file)
+		if err != nil {
+			errsC <- fmt.Errorf(
+				"failed to load pprof profile %s: %w", file, err,
+			)
+			return
+		}
+
+		rawStacks, err := CallstacksFromPprof(profile, opts)
+		if err != nil {
+			errsC <- fmt.Errorf(
+				"failed to convert from pprof to internal format: %w",
+				err,
+			)
+			return
+		}
+
+		results <- rawStacks
+	}
+}
+
 // LoadCallstacks retrieves the unique set of callstacks across all profiles.
 //
 func LoadCallstacks(files []string, opts ...CallstackOption) (callstacks []Callstack, err error) {
 	var (
-		profile   *pprof.Profile
-		rawStacks []Callstack
-		cOpts     = CallstackOptions{}
+		cOpts   = CallstackOptions{}
+		stacksC = make(chan []Callstack)
+		filesC  = make(chan string, len(files))
+		errsC   = make(chan error, len(files))
 	)
 
 	for _, opt := range opts {
 		opt(&cOpts)
 	}
 
-	allCallstacks := []Callstack{}
-
-	// map
-	for _, file := range files {
-		profile, err = loadPprofProfile(file)
-		if err != nil {
-			err = fmt.Errorf("failed to load pprof profile %s: %w", file, err)
-			return
-		}
-
-		rawStacks, err = CallstacksFromPprof(profile, cOpts)
-		if err != nil {
-			err = fmt.Errorf("failed to convert from pprof to internal format: %w",
-				err)
-			return
-		}
-
-		allCallstacks = append(allCallstacks, rawStacks...)
+	poolSize := math.Min(float64(runtime.NumCPU()), float64(len(files)))
+	for i := 0; i < int(poolSize); i++ {
+		go loadFileStacks(cOpts, filesC, stacksC, errsC)
 	}
 
-	// reduce
-	callstacks = Merge(allCallstacks)
+	for _, file := range files {
+		filesC <- file
+	}
+	close(filesC)
 
+	var (
+		allStacks      []Callstack
+		filesCollected int
+	)
+
+wait:
+	for {
+		select {
+		case stacks := <-stacksC:
+			allStacks = append(allStacks, stacks...)
+			filesCollected++
+			if filesCollected == len(files) {
+				break wait
+			}
+		case err = <-errsC:
+			return
+		}
+
+	}
+
+	callstacks = Merge(allStacks)
 	return
 }
 
