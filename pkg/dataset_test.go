@@ -15,6 +15,7 @@ var _ = Describe("Memory Dataset", func() {
 	)
 
 	BeforeEach(func() {
+		callstacksToAdd = []pkg.Callstack{}
 		dataset = pkg.NewMemory()
 	})
 
@@ -45,7 +46,7 @@ var _ = Describe("Memory Dataset", func() {
 				callstacksToAdd = append(callstacksToAdd,
 					pkg.NewCallstack([]string{
 						"fn1", "fn2",
-					}, nil),
+					}, nil, nil),
 				)
 			})
 
@@ -78,7 +79,7 @@ var _ = Describe("Memory Dataset", func() {
 				callstacksToAdd = append(callstacksToAdd,
 					pkg.NewCallstack([]string{
 						"fn1", "fn2",
-					}, nil),
+					}, nil, nil),
 				)
 
 				fn = "fn1"

@@ -1,6 +1,8 @@
 package pkg_test
 
 import (
+	"regexp"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -11,16 +13,56 @@ import (
 
 var _ = Describe("Stack", func() {
 
+	Describe("NewCallstack", func() {
+		var (
+			callstack pkg.Callstack
+			data      []string
+			opt       *pkg.CallstackOptions
+		)
+
+		JustBeforeEach(func() {
+			callstack = pkg.NewCallstack(data, nil, opt)
+		})
+
+		Context("with StopAt", func() {
+			BeforeEach(func() {
+				opt = &pkg.CallstackOptions{
+					StopAt: regexp.MustCompile("^test.*"),
+				}
+			})
+
+			Context("starting w/ fns not matching", func() {
+				BeforeEach(func() {
+					data = []string{
+						"foo", "bar", "test.fn1", "test.fn2",
+					}
+				})
+
+				It("cuts them out", func() {
+					Expect(callstack.Data).To(ConsistOf(
+						"test.fn1", "test.fn2",
+					))
+				})
+			})
+		})
+	})
+
 	Describe("CallstacksFromPprof", func() {
 
 		var (
 			err        error
 			callstacks []pkg.Callstack
 			src        *pprof.Profile
+
+			opt pkg.CallstackOptions
 		)
 
+		BeforeEach(func() {
+			opt = pkg.CallstackOptions{}
+		})
+
 		JustBeforeEach(func() {
-			callstacks, err = pkg.CallstacksFromPprof(src)
+			callstacks, err = pkg.CallstacksFromPprof(src, opt)
 		})
 
 		Context("with empty profile", func() {
@@ -70,17 +112,33 @@ var _ = Describe("Stack", func() {
 					"fn1",
 					"fn2",
 				))
+			})
 
-				Expect(callstacks[0].Locations).To(ConsistOf(
-					pkg.Location{
-						Filename: "fn1.go",
-						Line:     123,
-					},
-					pkg.Location{
-						Filename: "fn2.go",
-						Line:     123,
-					},
-				))
+			Context("without verbose set", func() {
+				It("doesn't capture file info", func() {
+					Expect(callstacks[0].Locations).To(BeEmpty())
+				})
+			})
+
+			Context("having verbose set", func() {
+				BeforeEach(func() {
+					opt = pkg.CallstackOptions{
+						Verbose: true,
+					}
+				})
+
+				It("has file info captured", func() {
+					Expect(callstacks[0].Locations).To(ConsistOf(
+						pkg.Location{
+							Filename: "fn1.go",
+							Line:     123,
+						},
+						pkg.Location{
+							Filename: "fn2.go",
+							Line:     123,
+						},
+					))
+				})
 			})
 		})
 
@@ -97,29 +155,29 @@ var _ = Describe("Stack", func() {
 			Entry("empty", scenario{}),
 			Entry("single", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
 				},
 			}),
 			Entry("different stacks", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
-					pkg.NewCallstack([]string{"b"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"b"}, nil, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
-					pkg.NewCallstack([]string{"b"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"b"}, nil, nil),
 				},
 			}),
 			Entry("equal stacks", scenario{
 				input: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
-					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
 				},
 				expected: []pkg.Callstack{
-					pkg.NewCallstack([]string{"a"}, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
 				},
 			}),
 		)

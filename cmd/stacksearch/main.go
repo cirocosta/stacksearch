@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/cirocosta/stacksearch/pkg"
 	"github.com/jessevdk/go-flags"
 )
 
 type cli struct {
-	Paths     []string `long:"profile" required:"true" short:"p"`
-	Verbose   bool     `long:"verbose" short:"v"`
+	Paths     []string `long:"profile"    description:"pprof files to read from" required:"true" short:"p"`
+	Verbose   bool     `long:"verbose"    description:"display filename and line for each method"`
 	ShowFuncs bool     `long:"show-funcs" description:"shows available functions"`
+	StopAt    string   `long:"stop-at"    description:"where stacks should stop"`
 }
 
 func main() {
@@ -34,7 +36,10 @@ func main() {
 func run(c cli, args []string) (err error) {
 	var callstacks []pkg.Callstack
 
-	dataset, err := populateDataset(c.Paths)
+	dataset, err := populateDataset(c.Paths,
+		pkg.WithStopAt(regexp.MustCompile(c.StopAt)),
+		pkg.WithVerbose(c.Verbose),
+	)
 	if err != nil {
 		return
 	}
@@ -58,6 +63,31 @@ func run(c cli, args []string) (err error) {
 	return
 }
 
+func populateDataset(paths []string, opts ...pkg.CallstackOption) (dataset pkg.Dataset, err error) {
+	var expandedPaths, matches []string
+
+	for _, path := range paths {
+		matches, err = filepath.Glob(path)
+		if err != nil {
+			return
+		}
+
+		expandedPaths = append(expandedPaths, matches...)
+	}
+
+	callstacks, err := pkg.LoadCallstacks(expandedPaths, opts...)
+	if err != nil {
+		return
+	}
+
+	dataset = pkg.NewMemory()
+	for _, callstack := range callstacks {
+		dataset.Add(callstack)
+	}
+
+	return
+}
+
 func showCallstacks(callstacks []pkg.Callstack, verbose bool) {
 	for _, callstack := range callstacks {
 		for idx := range callstack.Data {
@@ -75,29 +105,4 @@ func showCallstacks(callstacks []pkg.Callstack, verbose bool) {
 
 		fmt.Println()
 	}
-}
-
-func populateDataset(paths []string) (dataset pkg.Dataset, err error) {
-	var matches []string
-
-	for _, path := range paths {
-		matches, err = filepath.Glob(path)
-		if err != nil {
-			return
-		}
-
-		paths = append(paths, matches...)
-	}
-
-	callstacks, err := pkg.LoadCallstacks(paths)
-	if err != nil {
-		return
-	}
-
-	dataset = pkg.NewMemory()
-	for _, callstack := range callstacks {
-		dataset.Add(callstack)
-	}
-
-	return
 }

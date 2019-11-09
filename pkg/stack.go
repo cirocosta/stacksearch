@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	pprof "github.com/google/pprof/profile"
@@ -22,9 +23,43 @@ type Callstack struct {
 	digest [32]byte
 }
 
-func NewCallstack(data []string, locations []Location) (callstack Callstack) {
+type CallstackOptions struct {
+	StopAt  *regexp.Regexp
+	Verbose bool
+}
+
+type CallstackOption func(*CallstackOptions)
+
+func WithStopAt(matcher *regexp.Regexp) CallstackOption {
+	return func(o *CallstackOptions) {
+		o.StopAt = matcher
+	}
+}
+
+func WithVerbose(v bool) CallstackOption {
+	return func(o *CallstackOptions) {
+		o.Verbose = v
+	}
+}
+
+func NewCallstack(data []string, locations []Location, opt *CallstackOptions) (callstack Callstack) {
 	callstack.Data = data
 	callstack.Locations = locations
+
+	if opt != nil {
+		if opt.StopAt != nil {
+			idx := 0
+			for _, dp := range data {
+				if !opt.StopAt.MatchString(dp) {
+					idx++
+					continue
+				}
+
+				callstack.Data = callstack.Data[idx:]
+				break
+			}
+		}
+	}
 
 	callstack.digest = sha256.Sum256([]byte(
 		strings.Join(callstack.Data, "\n")),
@@ -35,11 +70,16 @@ func NewCallstack(data []string, locations []Location) (callstack Callstack) {
 
 // LoadCallstacks retrieves the unique set of callstacks across all profiles.
 //
-func LoadCallstacks(files []string) (callstacks []Callstack, err error) {
+func LoadCallstacks(files []string, opts ...CallstackOption) (callstacks []Callstack, err error) {
 	var (
 		profile   *pprof.Profile
 		rawStacks []Callstack
+		cOpts     = CallstackOptions{}
 	)
+
+	for _, opt := range opts {
+		opt(&cOpts)
+	}
 
 	allCallstacks := []Callstack{}
 
@@ -51,7 +91,7 @@ func LoadCallstacks(files []string) (callstacks []Callstack, err error) {
 			return
 		}
 
-		rawStacks, err = CallstacksFromPprof(profile)
+		rawStacks, err = CallstacksFromPprof(profile, cOpts)
 		if err != nil {
 			err = fmt.Errorf("failed to convert from pprof to internal format: %w",
 				err)
@@ -69,36 +109,35 @@ func LoadCallstacks(files []string) (callstacks []Callstack, err error) {
 
 // sampleStack captures the callstack of a given sample.
 //
-func sampleStack(sample *pprof.Sample) (callstack Callstack) {
+func sampleStack(sample *pprof.Sample, opts *CallstackOptions) (callstack Callstack) {
 	var (
 		data      = make([]string, len(sample.Location))
-		locations = make([]Location, len(sample.Location))
+		locations []Location
 	)
+
+	if opts.Verbose {
+		locations = make([]Location, len(sample.Location))
+	}
 
 	for idx, location := range sample.Location {
 		data[idx] = location.Line[0].Function.Name
-		locations[idx] = Location{
-			Filename: location.Line[0].Function.Filename,
-			Line:     location.Line[0].Line,
+
+		if opts.Verbose {
+			locations[idx] = Location{
+				Filename: location.Line[0].Function.Filename,
+				Line:     location.Line[0].Line,
+			}
 		}
 	}
 
-	callstack = NewCallstack(data, locations)
+	callstack = NewCallstack(data, locations, opts)
 
-	return
-}
-
-// HavingFn filters down the list of stacks to those containing a function.
-//
-// TODO
-//
-func HavingFn(stacks []Callstack, fn string) (res []Callstack, err error) {
 	return
 }
 
 // FromPprof converts a pprof profile to a set of unique stacks.
 //
-func CallstacksFromPprof(src *pprof.Profile) (callstacks []Callstack, err error) {
+func CallstacksFromPprof(src *pprof.Profile, opts CallstackOptions) (callstacks []Callstack, err error) {
 	if src == nil {
 		err = errors.Errorf("src profile must no be nil")
 		return
@@ -107,7 +146,7 @@ func CallstacksFromPprof(src *pprof.Profile) (callstacks []Callstack, err error)
 	m := map[[32]byte]struct{}{}
 
 	for _, sample := range src.Sample {
-		callstack := sampleStack(sample)
+		callstack := sampleStack(sample, &opts)
 
 		_, found := m[callstack.digest]
 		if found {
