@@ -47,6 +47,67 @@ var _ = Describe("Stack", func() {
 		})
 	})
 
+	Describe("MergeSubCallstacks", func() {
+
+		var callstacks, merged []pkg.Callstack
+
+		JustBeforeEach(func() {
+			merged = pkg.MergeSubCallstacks(callstacks)
+		})
+
+		Context("with empty callstacks", func() {
+			BeforeEach(func() {
+				callstacks = nil
+			})
+
+			It("does nothing", func() {
+				Expect(merged).To(Equal(callstacks))
+			})
+		})
+
+		Context("with single callstack", func() {
+			BeforeEach(func() {
+				callstacks = []pkg.Callstack{}
+			})
+
+			It("does nothinig", func() {
+				Expect(merged).To(BeEmpty())
+			})
+		})
+
+		Context("with 2+ callstacks", func() {
+			Context("being identical", func() {
+				BeforeEach(func() {
+					callstacks = []pkg.Callstack{
+						{Data: []string{"fn1", "fn2"}},
+						{Data: []string{"fn1", "fn2"}},
+					}
+				})
+
+				It("reduces to a single one", func() {
+					Expect(merged).To(ConsistOf(pkg.Callstack{
+						Data: []string{"fn1", "fn2"},
+					}))
+				})
+			})
+
+			Context("havinig one that is part of another", func() {
+				BeforeEach(func() {
+					callstacks = []pkg.Callstack{
+						{Data: []string{"fn1", "fn2"}},
+						{Data: []string{"fn1"}},
+					}
+				})
+
+				It("merges", func() {
+					Expect(merged).To(ConsistOf(pkg.Callstack{
+						Data: []string{"fn1", "fn2"},
+					}))
+				})
+			})
+		})
+	})
+
 	Describe("CallstacksFromPprof", func() {
 
 		var (

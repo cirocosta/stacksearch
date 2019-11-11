@@ -15,6 +15,7 @@ type cli struct {
 	Verbose   bool     `long:"verbose"    description:"display filename and line for each method"`
 	ShowFuncs bool     `long:"show-funcs" description:"shows available functions"`
 	StopAt    string   `long:"stop-at"    description:"where stacks should stop"`
+	Merge     bool     `long:"merge"      description:"merge stacks that are part of another"`
 }
 
 func main() {
@@ -56,6 +57,10 @@ func run(c cli, args []string) (err error) {
 			fmt.Println(f)
 		}
 		return
+	}
+
+	if c.Merge {
+		callstacks = pkg.MergeSubCallstacks(callstacks)
 	}
 
 	showCallstacks(callstacks, c.Verbose)

@@ -70,6 +70,78 @@ func NewCallstack(data []string, locations []Location, opt *CallstackOptions) (c
 	return
 }
 
+func isEqual(a, b []string) bool {
+	for _, vA := range a {
+		for _, vB := range b {
+			if vA != vB {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func subCallstackMatch(a, b Callstack) []Callstack {
+	lA, lB := len(a.Data), len(b.Data)
+
+	switch {
+	case lA == lB:
+		if isEqual(a.Data, b.Data) {
+			return []Callstack{a}
+		}
+	case lA < lB:
+		if isEqual(a.Data, b.Data[:lA]) {
+			return []Callstack{b}
+		}
+	case lA > lB:
+		if isEqual(a.Data[:lB], b.Data) {
+			return []Callstack{a}
+		}
+	}
+
+	return []Callstack{a, b}
+}
+
+type callstackSet struct {
+	stacks []Callstack
+	kv     map[[32]byte]struct{}
+}
+
+func newSet() callstackSet {
+	return callstackSet{
+		kv: map[[32]byte]struct{}{},
+	}
+}
+
+func (c *callstackSet) add(callstacks ...Callstack) {
+	for _, callstack := range callstacks {
+		_, found := c.kv[callstack.digest]
+		if found {
+			return
+		}
+
+		c.kv[callstack.digest] = struct{}{}
+		c.stacks = append(c.stacks, callstack)
+	}
+}
+
+func MergeSubCallstacks(callstacks []Callstack) (merged []Callstack) {
+	s := newSet()
+
+	for i := 0; i < len(callstacks)-1; i++ {
+		for j := i + 1; j < len(callstacks); j++ {
+			s.add(subCallstackMatch(
+				callstacks[i], callstacks[j],
+			)...)
+		}
+	}
+
+	merged = s.stacks
+
+	return
+}
+
 func loadFileStacks(opts CallstackOptions, files <-chan string, results chan<- []Callstack, errsC chan<- error) {
 	for file := range files {
 		profile, err := loadPprofProfile(file)
@@ -177,19 +249,14 @@ func CallstacksFromPprof(src *pprof.Profile, opts CallstackOptions) (callstacks 
 		return
 	}
 
-	m := map[[32]byte]struct{}{}
+	s := newSet()
 
 	for _, sample := range src.Sample {
 		callstack := sampleStack(sample, &opts)
-
-		_, found := m[callstack.digest]
-		if found {
-			continue
-		}
-
-		m[callstack.digest] = struct{}{}
-		callstacks = append(callstacks, callstack)
+		s.add(callstack)
 	}
+
+	callstacks = s.stacks
 
 	return
 }
@@ -197,20 +264,11 @@ func CallstacksFromPprof(src *pprof.Profile, opts CallstackOptions) (callstacks 
 // Merge takes two sets of callstacks and produce a final one that has only
 // unique callstacks.
 //
-func Merge(callstacks []Callstack) (merged []Callstack) {
-	m := map[[32]byte]struct{}{}
+func Merge(callstacks []Callstack) []Callstack {
+	s := newSet()
 
-	for _, callstack := range callstacks {
-		_, found := m[callstack.digest]
-		if found {
-			continue
-		}
-
-		m[callstack.digest] = struct{}{}
-		merged = append(merged, callstack)
-	}
-
-	return
+	s.add(callstacks...)
+	return s.stacks
 }
 
 // loadPprofProfile loads a *.pprof profile from disk into an in-memory parsed
