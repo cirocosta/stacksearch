@@ -98,7 +98,7 @@ func (c *callstackSet) add(callstacks ...Callstack) {
 		digest := callstack.digest()
 		_, found := c.kv[digest]
 		if found {
-			return
+			continue
 		}
 
 		c.kv[digest] = struct{}{}
