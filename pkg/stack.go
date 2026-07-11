@@ -56,6 +56,9 @@ func NewCallstack(data []string, locations []Location, opt *CallstackOptions) (c
 				}
 
 				callstack.Data = callstack.Data[idx:]
+				if callstack.Locations != nil {
+					callstack.Locations = callstack.Locations[idx:]
+				}
 				break
 			}
 		}
