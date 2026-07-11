@@ -162,6 +162,10 @@ func loadFileStacks(opts CallstackOptions, files <-chan string, results chan<- [
 // LoadCallstacks retrieves the unique set of callstacks across all profiles.
 //
 func LoadCallstacks(files []string, opts ...CallstackOption) (callstacks []Callstack, err error) {
+	if len(files) == 0 {
+		return
+	}
+
 	var (
 		cOpts   = CallstackOptions{}
 		stacksC = make(chan []Callstack)

@@ -236,6 +236,15 @@ var _ = Describe("Stack", func() {
 
 	})
 
+	Describe("LoadCallstacks", func() {
+		It("returns an empty result without files", func() {
+			callstacks, err := pkg.LoadCallstacks(nil)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(callstacks).To(BeEmpty())
+		})
+	})
+
 	Describe("Merge", func() {
 
 		type scenario struct{ input, expected []pkg.Callstack }
