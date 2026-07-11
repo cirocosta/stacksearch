@@ -272,6 +272,17 @@ var _ = Describe("Stack", func() {
 					pkg.NewCallstack([]string{"a"}, nil, nil),
 				},
 			}),
+			Entry("duplicate followed by a unique stack", scenario{
+				input: []pkg.Callstack{
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"b"}, nil, nil),
+				},
+				expected: []pkg.Callstack{
+					pkg.NewCallstack([]string{"a"}, nil, nil),
+					pkg.NewCallstack([]string{"b"}, nil, nil),
+				},
+			}),
 		)
 	})
 
