@@ -21,8 +21,6 @@ type Location struct {
 type Callstack struct {
 	Data      []string
 	Locations []Location
-
-	digest [32]byte
 }
 
 type CallstackOptions struct {
@@ -63,44 +61,25 @@ func NewCallstack(data []string, locations []Location, opt *CallstackOptions) (c
 		}
 	}
 
-	callstack.digest = sha256.Sum256([]byte(
-		strings.Join(callstack.Data, "\n")),
-	)
-
 	return
 }
 
-func isEqual(a, b []string) bool {
-	for _, vA := range a {
-		for _, vB := range b {
-			if vA != vB {
-				return false
-			}
+func (c Callstack) digest() [32]byte {
+	return sha256.Sum256([]byte(strings.Join(c.Data, "\n")))
+}
+
+func isPrefix(prefix, stack []string) bool {
+	if len(prefix) > len(stack) {
+		return false
+	}
+
+	for i := range prefix {
+		if prefix[i] != stack[i] {
+			return false
 		}
 	}
 
 	return true
-}
-
-func subCallstackMatch(a, b Callstack) []Callstack {
-	lA, lB := len(a.Data), len(b.Data)
-
-	switch {
-	case lA == lB:
-		if isEqual(a.Data, b.Data) {
-			return []Callstack{a}
-		}
-	case lA < lB:
-		if isEqual(a.Data, b.Data[:lA]) {
-			return []Callstack{b}
-		}
-	case lA > lB:
-		if isEqual(a.Data[:lB], b.Data) {
-			return []Callstack{a}
-		}
-	}
-
-	return []Callstack{a, b}
 }
 
 type callstackSet struct {
@@ -116,24 +95,39 @@ func newSet() callstackSet {
 
 func (c *callstackSet) add(callstacks ...Callstack) {
 	for _, callstack := range callstacks {
-		_, found := c.kv[callstack.digest]
+		digest := callstack.digest()
+		_, found := c.kv[digest]
 		if found {
 			return
 		}
 
-		c.kv[callstack.digest] = struct{}{}
+		c.kv[digest] = struct{}{}
 		c.stacks = append(c.stacks, callstack)
 	}
 }
 
 func MergeSubCallstacks(callstacks []Callstack) (merged []Callstack) {
+	if len(callstacks) < 2 {
+		return callstacks
+	}
+
 	s := newSet()
 
-	for i := 0; i < len(callstacks)-1; i++ {
-		for j := i + 1; j < len(callstacks); j++ {
-			s.add(subCallstackMatch(
-				callstacks[i], callstacks[j],
-			)...)
+	for i, callstack := range callstacks {
+		isSubcallstack := false
+		for j, other := range callstacks {
+			if i == j || len(callstack.Data) >= len(other.Data) {
+				continue
+			}
+
+			if isPrefix(callstack.Data, other.Data) {
+				isSubcallstack = true
+				break
+			}
+		}
+
+		if !isSubcallstack {
+			s.add(callstack)
 		}
 	}
 

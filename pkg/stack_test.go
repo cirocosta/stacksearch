@@ -67,11 +67,13 @@ var _ = Describe("Stack", func() {
 
 		Context("with single callstack", func() {
 			BeforeEach(func() {
-				callstacks = []pkg.Callstack{}
+				callstacks = []pkg.Callstack{
+					pkg.NewCallstack([]string{"fn1"}, nil, nil),
+				}
 			})
 
-			It("does nothinig", func() {
-				Expect(merged).To(BeEmpty())
+			It("keeps it", func() {
+				Expect(merged).To(Equal(callstacks))
 			})
 		})
 
@@ -79,14 +81,14 @@ var _ = Describe("Stack", func() {
 			Context("being identical", func() {
 				BeforeEach(func() {
 					callstacks = []pkg.Callstack{
-						{Data: []string{"fn1", "fn2"}},
-						{Data: []string{"fn1", "fn2"}},
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
 					}
 				})
 
 				It("reduces to a single one", func() {
-					Expect(merged).To(ConsistOf(pkg.Callstack{
-						Data: []string{"fn1", "fn2"},
+					Expect(merged).To(Equal([]pkg.Callstack{
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
 					}))
 				})
 			})
@@ -94,15 +96,44 @@ var _ = Describe("Stack", func() {
 			Context("havinig one that is part of another", func() {
 				BeforeEach(func() {
 					callstacks = []pkg.Callstack{
-						{Data: []string{"fn1", "fn2"}},
-						{Data: []string{"fn1"}},
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
+						pkg.NewCallstack([]string{"fn1"}, nil, nil),
 					}
 				})
 
 				It("merges", func() {
-					Expect(merged).To(ConsistOf(pkg.Callstack{
-						Data: []string{"fn1", "fn2"},
+					Expect(merged).To(Equal([]pkg.Callstack{
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
 					}))
+				})
+			})
+
+			Context("having a chain of subcallstacks", func() {
+				BeforeEach(func() {
+					callstacks = []pkg.Callstack{
+						pkg.NewCallstack([]string{"fn1", "fn2", "fn3"}, nil, nil),
+						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
+						pkg.NewCallstack([]string{"fn1"}, nil, nil),
+					}
+				})
+
+				It("keeps only the longest stack", func() {
+					Expect(merged).To(Equal([]pkg.Callstack{
+						pkg.NewCallstack([]string{"fn1", "fn2", "fn3"}, nil, nil),
+					}))
+				})
+			})
+
+			Context("having non-prefix stacks", func() {
+				BeforeEach(func() {
+					callstacks = []pkg.Callstack{
+						{Data: []string{"fn1", "fn2"}},
+						{Data: []string{"fn1", "fn3"}},
+					}
+				})
+
+				It("keeps both stacks", func() {
+					Expect(merged).To(Equal(callstacks))
 				})
 			})
 		})
