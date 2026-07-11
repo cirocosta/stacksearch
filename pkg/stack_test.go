@@ -17,11 +17,12 @@ var _ = Describe("Stack", func() {
 		var (
 			callstack pkg.Callstack
 			data      []string
+			locations []pkg.Location
 			opt       *pkg.CallstackOptions
 		)
 
 		JustBeforeEach(func() {
-			callstack = pkg.NewCallstack(data, nil, opt)
+			callstack = pkg.NewCallstack(data, locations, opt)
 		})
 
 		Context("with StopAt", func() {
@@ -38,12 +39,30 @@ var _ = Describe("Stack", func() {
 					}
 				})
 
-				It("cuts them out", func() {
-					Expect(callstack.Data).To(ConsistOf(
-						"test.fn1", "test.fn2",
-					))
+			It("cuts them out", func() {
+				Expect(callstack.Data).To(ConsistOf(
+					"test.fn1", "test.fn2",
+				))
+			})
+
+			Context("with locations", func() {
+				BeforeEach(func() {
+					locations = []pkg.Location{
+						{Filename: "foo.go", Line: 1},
+						{Filename: "bar.go", Line: 2},
+						{Filename: "test.go", Line: 3},
+						{Filename: "test2.go", Line: 4},
+					}
+				})
+
+				It("keeps locations aligned with frames", func() {
+					Expect(callstack.Locations).To(Equal([]pkg.Location{
+						{Filename: "test.go", Line: 3},
+						{Filename: "test2.go", Line: 4},
+					}))
 				})
 			})
+		})
 		})
 	})
 
