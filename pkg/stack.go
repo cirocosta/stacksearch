@@ -160,6 +160,7 @@ func loadFileStacks(opts CallstackOptions, files <-chan string, results chan<- [
 }
 
 // LoadCallstacks retrieves the unique set of callstacks across all profiles.
+//
 func LoadCallstacks(files []string, opts ...CallstackOption) (callstacks []Callstack, err error) {
 	var (
 		cOpts   = CallstackOptions{}
@@ -207,6 +208,7 @@ wait:
 }
 
 // sampleStack captures the callstack of a given sample.
+//
 func sampleStack(sample *pprof.Sample, opts *CallstackOptions) (callstack Callstack) {
 	var (
 		data      = make([]string, len(sample.Location))
@@ -234,6 +236,7 @@ func sampleStack(sample *pprof.Sample, opts *CallstackOptions) (callstack Callst
 }
 
 // FromPprof converts a pprof profile to a set of unique stacks.
+//
 func CallstacksFromPprof(src *pprof.Profile, opts CallstackOptions) (callstacks []Callstack, err error) {
 	if src == nil {
 		err = errors.Errorf("src profile must no be nil")
@@ -254,6 +257,7 @@ func CallstacksFromPprof(src *pprof.Profile, opts CallstackOptions) (callstacks 
 
 // Merge takes two sets of callstacks and produce a final one that has only
 // unique callstacks.
+//
 func Merge(callstacks []Callstack) []Callstack {
 	s := newSet()
 
@@ -263,6 +267,7 @@ func Merge(callstacks []Callstack) []Callstack {
 
 // loadPprofProfile loads a *.pprof profile from disk into an in-memory parsed
 // format.
+//
 func loadPprofProfile(file string) (profile *pprof.Profile, err error) {
 	f, err := os.Open(file)
 	if err != nil {
