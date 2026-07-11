@@ -127,8 +127,8 @@ var _ = Describe("Stack", func() {
 			Context("having non-prefix stacks", func() {
 				BeforeEach(func() {
 					callstacks = []pkg.Callstack{
-						pkg.NewCallstack([]string{"fn1", "fn2"}, nil, nil),
-						pkg.NewCallstack([]string{"fn1", "fn3"}, nil, nil),
+						{Data: []string{"fn1", "fn2"}},
+						{Data: []string{"fn1", "fn3"}},
 					}
 				})
 
